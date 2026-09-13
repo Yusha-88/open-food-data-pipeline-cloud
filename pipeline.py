@@ -1,23 +1,18 @@
 import pandas as pd
-from sqlalchemy import create_engine, Text
-from tqdm.auto import tqdm
+import pandas_gbq 
+from google.oauth2 import service_account
 
-# Stops column names from being truncated when printed to terminal
-pd.options.display.max_columns = None
-pd.options.display.max_rows = None
+PROJECT_ID = "open-food-bgq"
+DATASET_ID = "open_food"
+TABLE_ID = "open_food_table"
+TABLE_NAME = f"{DATASET_ID}.{TABLE_ID}"
+
+SERVICE_ACCOUNT = "service_account.json"
+
+credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT)
 
 url = 'https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz'
 
-# Postgres parameters
-pg_user = 'root'
-pg_pass = 'root'
-pg_host = 'pgdatabase'
-pg_port = 5432
-pg_db = 'open_food'
-
-engine = create_engine(f'postgresql://{pg_user}:{pg_pass}@{pg_host}:{pg_port}/{pg_db}')
-
-# Removing nutriscore and environmental score since they have invalid text entries in them.
 relevant_cols = [
     "product_name",
     "generic_name",
@@ -45,15 +40,6 @@ relevant_cols = [
     "added-salt_100g"
 ]
 
-# Using this to see where 'en:italy' error happens in a column. The error is in the nutriscore_grade column
-testing_cols = [
-    "nutriscore_score",
-    "nutriscore_grade",
-    "brand_owner",
-    "environmental_score_score",
-    "environmental_score_grade",
-]
-
 # Extraction and transformation
 def extract_transform_csv(url, nrows=None):
     print("Starting...")       
@@ -67,18 +53,29 @@ def extract_transform_csv(url, nrows=None):
         chunksize=100000
         )
     return df_iter
+    
 
-# Load open food df into Postgres DB.
+# Load open food df into Google BigQuery.
 def load_df_to_database(Dataframe):
-    for df_chunk in tqdm(Dataframe):
+    print("load_df running...")
+    for df_chunk in Dataframe:
         try:
-            df_chunk.to_sql(name='open_food', con=engine, if_exists='append')  
-        except pd.errors.DatabaseError:
+            pandas_gbq.to_gbq(
+                df_chunk, 
+                TABLE_NAME, 
+                project_id=PROJECT_ID, 
+                credentials=credentials, 
+                progress_bar=True, 
+                if_exists='append'
+                )  
+        except pandas_gbq.exceptions.ConversionError:
             pass
+    print("load_df finished")
 
 def main():
     num_rows_to_extract = 1000000  
     open_food_df = extract_transform_csv(url)
+    print("Finished extract and transform")
     load_df_to_database(open_food_df)
     print("Finished")
 

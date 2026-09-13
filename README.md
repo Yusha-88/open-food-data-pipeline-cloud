@@ -1,16 +1,8 @@
 # open-food-data-pipeline
-A simple ETL pipeline that ingests an Open Food Data CSV into a Postgres database. Uses Python, Docker, and SQL.
+A simple ETL pipeline that ingests an Open Food Data CSV into BigQuery. Uses Python, Docker, and GCP.
 
 ### Change log:
 
-23/08/26 - Created docker-compose file.
+13/09/2026 - Added Conversion Error exception to let upload into Google BigQuery
 
-22/08/26 - Put pipeline.py in a Docker container and connected it to the PostgreSQL container. General tidy-up up of pipeline.py.
-
-18/08/26 - Added try-except block to the load to database function, allowing majority of the 4.5 millions records to be uploaded. 
-
-15/08/26 - Decided to load 1 million rows of data from original CSV into Postgres.
-
-11/08/26 - Fixed issue where only 100,000 records were uploaded to the database at a time. Using a few select columns from original CSV's 155 columns.
-
-10/08/26 - Setup Postgres DB and extract_csv now can input some data to it.
+12/09/2026 - Initial creation.
