@@ -73,13 +73,11 @@ def load_df_to_database(Dataframe):
     print("load_df finished")
 
 def main():
-    num_rows_to_extract = 1000000  
+    # num_rows_to_extract = 1000000  
     open_food_df = extract_transform_csv(url)
     print("Finished extract and transform")
     load_df_to_database(open_food_df)
     print("Finished")
-
-    # open_food_df.to_csv('output.csv', index=False)
 
 if __name__ == "__main__":
     main()
