@@ -1,5 +1,7 @@
 import pandas as pd
-import pandas_gbq 
+import pandas_gbq
+from tqdm import tqdm 
+import sys 
 from google.oauth2 import service_account
 
 PROJECT_ID = "open-food-bgq"
@@ -40,6 +42,25 @@ relevant_cols = [
     "added-salt_100g"
 ]
 
+# Used to load_df function to coerce non-float values to NaN or null
+numeric_cols = [
+    "nutriscore_score",
+    "environmental_score_score",
+    "energy-kcal_100g",
+    "energy_100g",
+    "fat_100g",
+    "saturated-fat_100g",
+    "trans-fat_100g",
+    "cholesterol_100g",
+    "carbohydrates_100g",
+    "sugars_100g",
+    "added-sugars_100g",
+    "fiber_100g",
+    "proteins_100g",
+    "salt_100g",
+    "added-salt_100g"
+]
+
 # Extraction and transformation
 def extract_transform_csv(url, nrows=None):
     print("Starting...")       
@@ -50,26 +71,25 @@ def extract_transform_csv(url, nrows=None):
         usecols=relevant_cols,
         iterator=True,
         low_memory=False,
-        chunksize=100000
+        chunksize=500000
         )
     return df_iter
-    
 
 # Load open food df into Google BigQuery.
 def load_df_to_database(Dataframe):
     print("load_df running...")
     for df_chunk in Dataframe:
-        try:
-            pandas_gbq.to_gbq(
-                df_chunk, 
-                TABLE_NAME, 
-                project_id=PROJECT_ID, 
-                credentials=credentials, 
-                progress_bar=True, 
-                if_exists='append'
-                )  
-        except pandas_gbq.exceptions.ConversionError:
-            pass
+        # Forces non-float values in float columns to NaN/null.
+        for col in numeric_cols:
+            df_chunk[col] = pd.to_numeric(df_chunk[col], errors = "coerce")
+        pandas_gbq.to_gbq(
+            df_chunk, 
+            TABLE_NAME, 
+            project_id=PROJECT_ID, 
+            credentials=credentials, 
+            progress_bar=True, 
+            if_exists='append'
+            )  
     print("load_df finished")
 
 def main():
