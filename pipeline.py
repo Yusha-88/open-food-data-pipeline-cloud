@@ -1,7 +1,9 @@
 import pandas as pd
 import pandas_gbq
+from urllib.error import HTTPError
 from tqdm import tqdm 
 import sys 
+import requests
 from google.oauth2 import service_account
 
 PROJECT_ID = "open-food-bgq"
@@ -15,6 +17,7 @@ credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCO
 
 url = 'https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz'
 
+# Original CSV has 155 columns. Below are the most relevant. 
 relevant_cols = [
     "product_name",
     "generic_name",
@@ -40,7 +43,7 @@ relevant_cols = [
     "proteins_100g",
     "salt_100g",
     "added-salt_100g"
-]
+] 
 
 # Used to load_df function to coerce non-float values to NaN or null
 numeric_cols = [
@@ -61,18 +64,43 @@ numeric_cols = [
     "added-salt_100g"
 ]
 
+# Optional function to use to check if source CSV schema has changed. Useful when running this code after a long inactive use period. 
+def check_headers(column_list, url):
+    invalid_columns = False
+    print("Checking headers...")
+    try:       
+        df = pd.read_csv(url, sep='\t', nrows=1)
+        header_list = df.columns.tolist()
+    except HTTPError as err:
+        print(f"HTTP Error: {err}. Please check URL link.")
+        exit()
+    for column in column_list:
+        if column not in header_list:
+            print(f"{column} not found in file's headers.")
+            invalid_columns = True
+        else:
+            pass
+    if invalid_columns:
+        print("Please double-check the column names in the original CSV.")
+        exit()
+    return None
+
 # Extraction and transformation
 def extract_transform_csv(url, nrows=None):
-    print("Starting...")       
-    df_iter = pd.read_csv(
-        url, 
-        sep='\t',
-        nrows=nrows,
-        usecols=relevant_cols,
-        iterator=True,
-        low_memory=False,
-        chunksize=500000
-        )
+    print("Starting...")
+    try:       
+        df_iter = pd.read_csv(
+            url, 
+            sep='\t',
+            nrows=nrows,
+            usecols=relevant_cols,
+            iterator=True,
+            low_memory=False,
+            chunksize=500000
+            )
+    except HTTPError as err:
+        print(f"HTTP Error: {err}. Please check URL link.")
+        exit()
     return df_iter
 
 # Load open food df into Google BigQuery.
@@ -93,7 +121,9 @@ def load_df_to_database(Dataframe):
     print("load_df finished")
 
 def main():
-    # num_rows_to_extract = 1000000  
+    # num_rows_to_extract = 1000000
+    # check_headers(relevant_cols, url) 
+     
     open_food_df = extract_transform_csv(url)
     print("Finished extract and transform")
     load_df_to_database(open_food_df)
