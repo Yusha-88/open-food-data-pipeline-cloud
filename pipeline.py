@@ -5,6 +5,10 @@ from tqdm import tqdm
 import sys 
 import requests
 from google.oauth2 import service_account
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 PROJECT_ID = "open-food-bgq"
 DATASET_ID = "open_food"
@@ -67,7 +71,7 @@ numeric_cols = [
 # Optional function to use to check if source CSV schema has changed. Useful when running this code after a long inactive use period. 
 def check_headers(column_list, url):
     invalid_columns = False
-    print("Checking headers...")
+    logging.info("Checking headers...")
     try:       
         df = pd.read_csv(url, sep='\t', nrows=1)
         header_list = df.columns.tolist()
@@ -87,7 +91,7 @@ def check_headers(column_list, url):
 
 # Extraction and transformation
 def extract_transform_csv(url, nrows=None):
-    print("Starting...")
+    logging.info("Starting...")
     try:       
         df_iter = pd.read_csv(
             url, 
@@ -105,9 +109,11 @@ def extract_transform_csv(url, nrows=None):
 
 # Load open food df into Google BigQuery.
 def load_df_to_database(Dataframe):
-    print("load_df running...")
+    total_rows = 0
+    logging.info("load_df running...")
     for df_chunk in Dataframe:
         # Forces non-float values in float columns to NaN/null.
+        total_rows += len(df_chunk)
         for col in numeric_cols:
             df_chunk[col] = pd.to_numeric(df_chunk[col], errors = "coerce")
         pandas_gbq.to_gbq(
@@ -118,16 +124,16 @@ def load_df_to_database(Dataframe):
             progress_bar=True, 
             if_exists='append'
             )  
-    print("load_df finished")
+    logging.info(f"load_df finished. Number of rows uploaded: {total_rows}")
 
 def main():
     # num_rows_to_extract = 1000000
     # check_headers(relevant_cols, url) 
      
     open_food_df = extract_transform_csv(url)
-    print("Finished extract and transform")
+    logging.info("Finished extract and transform")
     load_df_to_database(open_food_df)
-    print("Finished")
+    logging.info("Finished")
 
 if __name__ == "__main__":
     main()
