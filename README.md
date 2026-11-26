@@ -3,6 +3,8 @@ A simple ETL pipeline that ingests an Open Food Data CSV into BigQuery. Uses Pyt
 
 ### Change log:
 
+26/11/2026 - Added unit tests via pytest. 
+
 25/11/2026 - Added check_url_response function.
 
 04/10/2026 - Added a fix that forced non-float values in float columns to convert to NaN/null. All records now upload to GBQ.

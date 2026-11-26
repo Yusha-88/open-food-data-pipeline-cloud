@@ -69,6 +69,8 @@ numeric_cols = [
     "added-salt_100g"
 ]
 
+# TODO: Add unit test/mock tests
+
 # Ensure download url is working
 def check_url_response(url):
     logging.info("Checking URL...")
@@ -115,14 +117,15 @@ def extract_transform_csv(url, nrows=None):
         usecols=relevant_cols,
         iterator=True,
         low_memory=False,
-        chunksize=500000
+        chunksize=100000
         )
     return df_iter
 
 # Load open food df into Google BigQuery.
-def load_df_to_database(Dataframe):
+def load_df_to_database(Dataframe, numeric_cols=None):
     total_rows = 0
     logging.info("Uploading to BigQuery...")
+    # Below might be confusing since it isn't iterating over a Dataframe but a TextFileReader with Dataframes.
     for df_chunk in Dataframe:    
         total_rows += len(df_chunk)
         # Forces non-float values in float columns to NaN/null.
@@ -139,7 +142,7 @@ def load_df_to_database(Dataframe):
     logging.info(f"load_df finished. Number of rows uploaded: {total_rows}")
 
 def main():
-    # num_rows_to_extract = 1000000
+    # num_rows_to_extract = 100
     # check_headers(relevant_cols, url) 
 
     if check_url_response(url):
@@ -151,7 +154,7 @@ def main():
     open_food_df = extract_transform_csv(url)
     logging.info("Finished extract and transform")
 
-    load_df_to_database(open_food_df)
+    load_df_to_database(open_food_df, numeric_cols)
     logging.info("Finished")
 
 if __name__ == "__main__":
