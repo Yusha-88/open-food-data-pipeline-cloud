@@ -4,7 +4,6 @@ from urllib.error import HTTPError
 import urllib3
 from tqdm import tqdm 
 import sys 
-import requests
 from google.oauth2 import service_account
 import logging
 
@@ -13,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 
 PROJECT_ID = "open-food-bgq"
 DATASET_ID = "open_food"
-TABLE_ID = "open_food_table"
+TABLE_ID = "open_food_staging_table"
 TABLE_NAME = f"{DATASET_ID}.{TABLE_ID}"
 
 SERVICE_ACCOUNT = "service_account.json"
@@ -21,6 +20,8 @@ SERVICE_ACCOUNT = "service_account.json"
 credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT)
 
 url = 'https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz'
+# Use below to speed up dev time instead of download the above each time. Make sure it's the latest version since new foods get added.
+local_csv = 'en.openfoodfacts.org.products.csv.gz'
 
 # Original CSV has 155 columns. Below are the most relevant. 
 relevant_cols = [
@@ -69,8 +70,6 @@ numeric_cols = [
     "added-salt_100g"
 ]
 
-# TODO: Add unit test/mock tests
-
 # Ensure download url is working
 def check_url_response(url):
     logging.info("Checking URL...")
@@ -107,14 +106,14 @@ def check_headers(column_list, url):
         exit()
     return None
 
-# Extraction and transformation
-def extract_transform_csv(url, nrows=None):
+# Extraction and transformation of CSV. Setting pandas to use chunks and turn into a TextFileReader not a Dataframe. TextFileReader is an iterator. 
+def extract_transform_csv(url, columns_to_keep, nrows=None):
     logging.info("Starting download...")     
     df_iter = pd.read_csv(
         url, 
         sep='\t',
         nrows=nrows,
-        usecols=relevant_cols,
+        usecols=columns_to_keep,
         iterator=True,
         low_memory=False,
         chunksize=100000
@@ -122,10 +121,10 @@ def extract_transform_csv(url, nrows=None):
     return df_iter
 
 # Load open food df into Google BigQuery.
-def load_df_to_database(Dataframe, numeric_cols=None):
+def load_df_to_database(Dataframe, numeric_cols):
     total_rows = 0
     logging.info("Uploading to BigQuery...")
-    # Below might be confusing since it isn't iterating over a Dataframe but a TextFileReader with Dataframes.
+    # Below is actually iterating over a TextFileReader since that's what extract_transform_csv() returns.
     for df_chunk in Dataframe:    
         total_rows += len(df_chunk)
         # Forces non-float values in float columns to NaN/null.
@@ -151,7 +150,7 @@ def main():
         logging.critical("Open Food Facts URL not responding. Shutting down pipeline.")
         sys.exit()   
 
-    open_food_df = extract_transform_csv(url)
+    open_food_df = extract_transform_csv(local_csv, relevant_cols)
     logging.info("Finished extract and transform")
 
     load_df_to_database(open_food_df, numeric_cols)
